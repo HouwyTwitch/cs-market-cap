@@ -42,8 +42,40 @@ python3 scripts/build.py
 
 This scans every `data/dd-mm-yyyy/` folder, computes per-item and total market
 caps, and writes `data/market.json` (dates, per-date totals, per-item history).
+(`count.json`/`counts.json` and `prices.json`/`price.json` spellings are both
+accepted.)
 
 Commit `data/market.json` alongside your snapshots so the static host serves it.
+
+### Build it automatically
+
+You don't have to remember to run the build — two mechanisms keep
+`data/market.json` in sync so the site never 404s on it.
+
+**1. Locally, on every commit and pull (git hooks).** Enable once per clone:
+
+```bash
+sh scripts/setup-hooks.sh
+```
+
+This points git at the tracked hooks in `.githooks/`:
+
+- **pre-commit** — when a commit touches a `data/dd-mm-yyyy/` snapshot (or the
+  build script), it rebuilds `data/market.json` and stages it, so the rebuilt
+  data is part of that same commit.
+- **post-merge** — after `git pull`/`git merge`, it rebuilds `data/market.json`
+  if the pulled changes added snapshots without a fresh build.
+
+**2. On GitHub, on every push (Actions).** `.github/workflows/build-market-data.yml`
+rebuilds `data/market.json` and commits it back whenever snapshots or the build
+script change on `main` — including edits made through the GitHub web UI, where
+local hooks can't run. It also runs on demand from the **Actions** tab
+(“Build market data” → *Run workflow*).
+
+> For the Action to push the rebuilt file back, the repo must allow it:
+> **Settings → Actions → General → Workflow permissions → “Read and write
+> permissions.”** (The `[skip ci]` in its commit message stops it re-triggering
+> itself.)
 
 ## Run locally
 

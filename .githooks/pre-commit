@@ -1,0 +1,27 @@
+#!/bin/sh
+# Auto-rebuild data/market.json before a commit when a snapshot folder or the
+# build script is part of that commit, so the committed dataset always matches
+# the data/<dd-mm-yyyy>/ snapshots.
+#
+# Enable once per clone with:  sh scripts/setup-hooks.sh
+# (that sets core.hooksPath = .githooks)
+
+changed=$(git diff --cached --name-only --diff-filter=ACMRD)
+
+# Only rebuild when a dated snapshot folder or the build script is staged.
+if ! printf '%s\n' "$changed" | grep -qE '^(data/[0-9]{2}-[0-9]{2}-[0-9]{4}/|scripts/build\.py$)'; then
+  exit 0
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "pre-commit: python3 not found; skipping market.json rebuild." >&2
+  exit 0
+fi
+
+echo "pre-commit: rebuilding data/market.json ..."
+if ! python3 scripts/build.py >/dev/null; then
+  echo "pre-commit: scripts/build.py failed; aborting commit." >&2
+  exit 1
+fi
+
+git add data/market.json
