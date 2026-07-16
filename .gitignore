@@ -4,3 +4,7 @@
 !.dev.vars.example
 .env*
 !.env.example
+
+# generated: built from data/<dd-mm-yyyy>/ snapshots by scripts/build.py
+# (built at deploy time by Cloudflare and locally by the git hooks)
+data/market.json

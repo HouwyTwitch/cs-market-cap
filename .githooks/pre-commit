@@ -1,7 +1,8 @@
 #!/bin/sh
-# Auto-rebuild data/market.json before a commit when a snapshot folder or the
-# build script is part of that commit, so the committed dataset always matches
-# the data/<dd-mm-yyyy>/ snapshots.
+# Rebuild the generated data/market.json before a commit that touches a snapshot
+# folder or the build script, so a locally served site reflects the snapshots.
+# The file is gitignored (built at deploy time and here for local dev) — it is
+# NOT staged, so it never lands in a commit.
 #
 # Enable once per clone with:  sh scripts/setup-hooks.sh
 # (that sets core.hooksPath = .githooks)
@@ -18,10 +19,8 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 0
 fi
 
-echo "pre-commit: rebuilding data/market.json ..."
+echo "pre-commit: rebuilding data/market.json (local, not committed) ..."
 if ! python3 scripts/build.py >/dev/null; then
   echo "pre-commit: scripts/build.py failed; aborting commit." >&2
   exit 1
 fi
-
-git add data/market.json
