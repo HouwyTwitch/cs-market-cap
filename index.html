@@ -36,7 +36,7 @@
       <div class="hero-card">
         <p class="stat-label">Total market cap</p>
         <p id="hero-cap" class="hero-figure">—</p>
-        <p id="hero-delta" class="delta"></p>
+        <div id="hero-windows" class="window-row" aria-label="Market cap change by period"></div>
         <p id="hero-range-note" class="hero-note"></p>
       </div>
       <div id="tiles" class="tiles"></div>
@@ -72,10 +72,13 @@
               <th class="col-rank" data-sort="rank"># </th>
               <th class="col-name" data-sort="name">Skin</th>
               <th class="col-num" data-sort="price">Price</th>
-              <th class="col-num" data-sort="change">Change</th>
+              <th class="col-num col-win" data-sort="w24">24h</th>
+              <th class="col-num col-win" data-sort="w7">7d</th>
+              <th class="col-num col-win" data-sort="w30">30d</th>
+              <th class="col-num col-win" data-sort="w90">90d</th>
               <th class="col-num" data-sort="cap">Market cap</th>
-              <th class="col-num" data-sort="count">Supply</th>
-              <th class="col-spark">Trend</th>
+              <th class="col-num col-supply" data-sort="count">Supply</th>
+              <th class="col-spark">30d trend</th>
             </tr>
           </thead>
           <tbody id="items-body"></tbody>

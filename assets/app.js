@@ -12,14 +12,61 @@
     { key: "ALL", days: null },
   ];
 
+  // Fixed look-back windows for price / market-cap change (independent of the
+  // chart range). Keyed to the sort keys used on the table headers.
+  const WINDOWS = [
+    { key: "24h", sort: "w24", days: 1 },
+    { key: "7d",  sort: "w7",  days: 7 },
+    { key: "30d", sort: "w30", days: 30 },
+    { key: "90d", sort: "w90", days: 90 },
+  ];
+
   const state = {
     data: null,
     derived: null,      // per-item computed stats for current range
+    totalWindows: null, // total market-cap change per fixed window
     range: "ALL",
     startIdx: 0,
     sortKey: "cap",
     sortDir: "desc",
     search: "",
+  };
+
+  /* ---------------------------------------------- fixed-window % change */
+  const dayMs = 86400000;
+  const isoMs = (s) => Date.parse(s + "T00:00:00Z");
+
+  // Latest index whose snapshot date is on or before `targetMs`, or -1.
+  function idxOnOrBefore(iso, targetMs) {
+    for (let i = iso.length - 1; i >= 0; i--) {
+      if (isoMs(iso[i]) <= targetMs) return i;
+    }
+    return -1;
+  }
+
+  // % change of a value series over the last `days`, using the snapshot
+  // closest on-or-before (now - days) as the baseline. null when there isn't
+  // enough history or the baseline is unusable.
+  function windowChange(arr, iso, days) {
+    const n = arr.length;
+    if (!n) return null;
+    let endI = n - 1;
+    while (endI >= 0 && arr[endI] == null) endI--;
+    if (endI < 0) return null;
+    const target = isoMs(iso[n - 1]) - days * dayMs;
+    let bi = idxOnOrBefore(iso, target);
+    if (bi < 0 || bi >= endI) return null;         // no earlier snapshot yet
+    while (bi >= 0 && arr[bi] == null) bi--;
+    if (bi < 0) return null;
+    const base = arr[bi], cur = arr[endI];
+    if (base == null || base <= 0 || cur == null) return null;
+    return ((cur - base) / base) * 100;
+  }
+
+  const itemWindows = (arr, iso) => {
+    const o = {};
+    for (const w of WINDOWS) o[w.key] = windowChange(arr, iso, w.days);
+    return o;
   };
 
   /* ------------------------------------------------------------ formatting */
@@ -300,6 +347,7 @@
         counts: it.counts,
         caps: it.caps,
         price, count, cap, change, priceChange,
+        win: itemWindows(it.prices, data.isoDates),
         dominance: totalCapNow > 0 && cap != null ? (cap / totalCapNow) * 100 : null,
         sparkCaps: it.caps.slice(start, end + 1),
       };
@@ -311,6 +359,7 @@
   function render() {
     state.startIdx = computeStartIdx();
     state.derived = computeDerived();
+    state.totalWindows = itemWindows(state.data.totals.marketCap, state.data.isoDates);
     renderRange();
     renderHero();
     renderHistory();
@@ -345,28 +394,43 @@
     return span;
   }
 
+  // Period chip: a label ("24h") over a tonal delta value. Used in the hero.
+  function windowPill(label, pct) {
+    const dir = pct == null ? "flat" : pct > 0.0001 ? "up" : pct < -0.0001 ? "down" : "flat";
+    const chip = document.createElement("div");
+    chip.className = "wchip " + dir;
+    const l = document.createElement("span");
+    l.className = "wchip-label";
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.className = "wchip-val";
+    if (pct != null && dir !== "flat") {
+      const a = document.createElement("span");
+      a.className = "arrow";
+      a.textContent = dir === "up" ? "▲" : "▼";
+      v.appendChild(a);
+    }
+    v.appendChild(document.createTextNode(pct == null ? "—" : fmtPct(pct)));
+    chip.appendChild(l); chip.appendChild(v);
+    return chip;
+  }
+
   function renderHero() {
-    const { data, startIdx, derived } = state;
+    const { data, derived, totalWindows } = state;
     const end = data.dates.length - 1;
-    const capNow = data.totals.marketCap[end];
-    const capStart = firstIn(data.totals.marketCap, startIdx, end);
-    let pct = null, abs = null;
-    if (capStart != null && capStart > 0) { pct = ((capNow - capStart) / capStart) * 100; abs = capNow - capStart; }
+    const capNow = lastIn(data.totals.marketCap, 0, end);
 
     document.getElementById("hero-cap").textContent = fmtUSD(capNow, true);
-    const hd = document.getElementById("hero-delta");
-    hd.textContent = "";
-    const d = deltaEl(pct);
-    hd.appendChild(d);
-    if (abs != null) {
-      const s = document.createElement("span");
-      s.className = "hero-note";
-      s.style.marginLeft = "8px";
-      s.textContent = `${abs >= 0 ? "+" : "-"}${fmtUSD(Math.abs(abs), true)}`;
-      hd.appendChild(s);
-    }
-    document.getElementById("hero-range-note").textContent =
-      `over ${rangeLabel()} · as of ${prettyDate(data.dates[end])}`;
+
+    // fixed-window change chips for the total market cap
+    const hw = document.getElementById("hero-windows");
+    hw.textContent = "";
+    for (const w of WINDOWS) hw.appendChild(windowPill(w.key, totalWindows[w.key]));
+
+    const haveHistory = data.dates.length > 1;
+    document.getElementById("hero-range-note").textContent = haveHistory
+      ? `as of ${prettyDate(data.dates[end])}`
+      : `as of ${prettyDate(data.dates[end])} · add more daily snapshots to unlock 24h / 7d / 30d / 90d change`;
 
     // tiles
     const tiles = document.getElementById("tiles");
@@ -426,12 +490,13 @@
     const q = state.search.trim().toLowerCase();
     if (q) rows = rows.filter((r) => r.name.toLowerCase().includes(q));
     const key = state.sortKey, dir = state.sortDir === "asc" ? 1 : -1;
+    const winBySort = { w24: "24h", w7: "7d", w30: "30d", w90: "90d" };
     const val = (r) => {
       if (key === "name") return r.name.toLowerCase();
       if (key === "rank" || key === "cap") return r.cap;
       if (key === "price") return r.price;
-      if (key === "change") return r.change;
       if (key === "count") return r.count;
+      if (winBySort[key]) return r.win[winBySort[key]];
       return r.cap;
     };
     rows.sort((a, b) => {
@@ -449,7 +514,7 @@
     const body = document.getElementById("items-body");
     body.textContent = "";
     document.getElementById("table-sub").textContent =
-      `${state.derived.length} skins · change shown over ${rangeLabel()}`;
+      `${state.derived.length} skins · price change over 24h / 7d / 30d / 90d`;
 
     // header sort indicators
     document.querySelectorAll("#items-table thead th[data-sort]").forEach((th) => {
@@ -470,7 +535,7 @@
     if (rows.length === 0) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 7; td.className = "no-results"; td.textContent = "No skins match your search.";
+      td.colSpan = 10; td.className = "no-results"; td.textContent = "No skins match your search.";
       tr.appendChild(td); body.appendChild(tr);
       return;
     }
@@ -494,21 +559,25 @@
 
       const priceTd = td("col-price col-num", fmtPrice(r.price));
 
-      const changeTd = document.createElement("td");
-      changeTd.className = "col-num";
-      changeTd.appendChild(deltaEl(r.change, { pill: true }));
+      const winTds = WINDOWS.map((w) => {
+        const cell = document.createElement("td");
+        cell.className = "col-num col-win";
+        cell.appendChild(deltaEl(r.win[w.key], { pill: true }));
+        return cell;
+      });
 
       const capTd = td("col-num", fmtUSD(r.cap, true));
       capTd.title = r.cap != null ? "$" + Math.round(r.cap).toLocaleString("en-US") : "";
 
-      const supplyTd = td("col-num", fmtNum(r.count));
+      const supplyTd = td("col-num col-supply", fmtNum(r.count));
       supplyTd.title = r.count != null ? Math.round(r.count).toLocaleString("en-US") + " units" : "";
 
       const sparkTd = document.createElement("td");
       sparkTd.className = "col-spark";
-      sparkTd.innerHTML = sparkline(r.sparkCaps, r.change == null ? true : r.change >= 0);
+      const sd = r.win["30d"] != null ? r.win["30d"] : r.change;
+      sparkTd.innerHTML = sparkline(r.sparkCaps, sd == null ? true : sd >= 0);
 
-      tr.append(rank, nameTd, priceTd, changeTd, capTd, supplyTd, sparkTd);
+      tr.append(rank, nameTd, priceTd, ...winTds, capTd, supplyTd, sparkTd);
       frag.appendChild(tr);
     });
     body.appendChild(frag);
@@ -542,15 +611,17 @@
       const v = document.createElement("span"); v.className = "ms-value"; v.textContent = value;
       ms.appendChild(l); ms.appendChild(v); stats.appendChild(ms);
     }
-    // change stats
-    const mkChange = (label, pct) => {
-      const ms = document.createElement("div"); ms.className = "ms";
-      const l = document.createElement("span"); l.className = "ms-label"; l.textContent = `${label} · ${rangeLabel()}`;
-      const v = document.createElement("span"); v.className = "ms-value";
-      v.appendChild(deltaEl(pct)); ms.appendChild(l); ms.appendChild(v); return ms;
-    };
-    stats.appendChild(mkChange("Price change", r.priceChange));
-    stats.appendChild(mkChange("Cap change", r.change));
+    // fixed-window price change chips
+    const winWrap = document.createElement("div");
+    winWrap.className = "ms ms-wide";
+    const wl = document.createElement("span");
+    wl.className = "ms-label";
+    wl.textContent = "Price change";
+    const wrow = document.createElement("div");
+    wrow.className = "window-row";
+    for (const w of WINDOWS) wrow.appendChild(windowPill(w.key, r.win[w.key]));
+    winWrap.appendChild(wl); winWrap.appendChild(wrow);
+    stats.appendChild(winWrap);
 
     buildLineChart(document.getElementById("modal-price-chart"), {
       labels: data.dates, values: r.prices,

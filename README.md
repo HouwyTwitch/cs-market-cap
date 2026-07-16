@@ -3,12 +3,19 @@
 A static web app that shows the **current market capitalisation and price history
 of CS2 skins** — like a crypto market cap site, but for Counter-Strike 2 items.
 
-- **Total market cap** hero figure with change over the selected range
+- **Total market cap** hero figure with **24h / 7d / 30d / 90d** change chips
 - **History graph** of total market cap over time (hover for values, range presets)
-- **Sortable / searchable table** of every skin with price, market cap, supply,
-  change % and a trend sparkline
-- **Per-skin detail** (click a row) with price and market-cap history charts
-- Light **and** dark mode, fully responsive, no dependencies, no tracking
+- **Sortable / searchable table** of every skin with price, **24h / 7d / 30d / 90d
+  price change**, market cap, supply and a trend sparkline
+- **Per-skin detail** (click a row) with the same change windows and price /
+  market-cap history charts
+- Light **and** dark mode (Material 3 Expressive theme), responsive, no
+  dependencies, no tracking
+
+> The 24h / 7d / 30d / 90d change is computed from the dated snapshots, using the
+> snapshot closest on-or-before each look-back point as the baseline. Each window
+> fills in once there are at least two daily snapshots that far apart — with a
+> single snapshot the chips show “—”.
 
 Market cap of a skin on a date = **price × units in existence**, summed across all
 tracked skins.
