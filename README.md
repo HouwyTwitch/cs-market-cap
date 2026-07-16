@@ -3,12 +3,19 @@
 A static web app that shows the **current market capitalisation and price history
 of CS2 skins** — like a crypto market cap site, but for Counter-Strike 2 items.
 
-- **Total market cap** hero figure with change over the selected range
+- **Total market cap** hero figure with **24h / 7d / 30d / 90d** change chips
 - **History graph** of total market cap over time (hover for values, range presets)
-- **Sortable / searchable table** of every skin with price, market cap, supply,
-  change % and a trend sparkline
-- **Per-skin detail** (click a row) with price and market-cap history charts
-- Light **and** dark mode, fully responsive, no dependencies, no tracking
+- **Sortable / searchable table** of every skin with price, **24h / 7d / 30d / 90d
+  price change**, market cap, supply and a trend sparkline
+- **Per-skin detail** (click a row) with the same change windows and price /
+  market-cap history charts
+- Light **and** dark mode (Material 3 Expressive theme), responsive, no
+  dependencies, no tracking
+
+> The 24h / 7d / 30d / 90d change is computed from the dated snapshots, using the
+> snapshot closest on-or-before each look-back point as the baseline. Each window
+> fills in once there are at least two daily snapshots that far apart — with a
+> single snapshot the chips show “—”.
 
 Market cap of a skin on a date = **price × units in existence**, summed across all
 tracked skins.
@@ -45,37 +52,28 @@ caps, and writes `data/market.json` (dates, per-date totals, per-item history).
 (`count.json`/`counts.json` and `prices.json`/`price.json` spellings are both
 accepted.)
 
-Commit `data/market.json` alongside your snapshots so the static host serves it.
+`data/market.json` is a **generated** file — it's in `.gitignore` and **not
+committed**. The `data/dd-mm-yyyy/` snapshots are the single source of truth; the
+consolidated file is rebuilt wherever the site is built or served (see below).
 
-### Build it automatically
+### It builds itself — you don't commit it
 
-You don't have to remember to run the build — two mechanisms keep
-`data/market.json` in sync so the site never 404s on it.
+- **On deploy (Cloudflare).** `wrangler.jsonc` runs `python3 scripts/build.py`
+  before uploading assets, so every deploy regenerates `data/market.json` from
+  the exact commit being deployed. See **Deploy** below.
+- **Locally (git hooks).** Enable once per clone:
 
-**1. Locally, on every commit and pull (git hooks).** Enable once per clone:
+  ```bash
+  sh scripts/setup-hooks.sh
+  ```
 
-```bash
-sh scripts/setup-hooks.sh
-```
+  - **pre-commit** rebuilds `data/market.json` when a commit touches a
+    `data/dd-mm-yyyy/` snapshot or the build script, so a locally served site
+    stays fresh.
+  - **post-merge** rebuilds it after a `git pull` that adds snapshots.
 
-This points git at the tracked hooks in `.githooks/`:
-
-- **pre-commit** — when a commit touches a `data/dd-mm-yyyy/` snapshot (or the
-  build script), it rebuilds `data/market.json` and stages it, so the rebuilt
-  data is part of that same commit.
-- **post-merge** — after `git pull`/`git merge`, it rebuilds `data/market.json`
-  if the pulled changes added snapshots without a fresh build.
-
-**2. On GitHub, on every push (Actions).** `.github/workflows/build-market-data.yml`
-rebuilds `data/market.json` and commits it back whenever snapshots or the build
-script change on `main` — including edits made through the GitHub web UI, where
-local hooks can't run. It also runs on demand from the **Actions** tab
-(“Build market data” → *Run workflow*).
-
-> For the Action to push the rebuilt file back, the repo must allow it:
-> **Settings → Actions → General → Workflow permissions → “Read and write
-> permissions.”** (The `[skip ci]` in its commit message stops it re-triggering
-> itself.)
+Because the generated file isn't committed, it never causes rebuild/merge
+conflicts — only the snapshots are versioned.
 
 ## Run locally
 
@@ -106,10 +104,11 @@ platform builds before a follow-up “rebuild” commit lands — Cloudflare no 
 depends on that commit existing at all. (Cloudflare's build image includes
 Python 3; the build script is pure standard library, so nothing to install.)
 
-**GitHub Pages** (or any host without a build step): Settings → Pages → deploy
-from branch, root (`/`). There's no build step, so it serves the committed
-`data/market.json` — kept current by the pre-commit hook and the Actions
-workflow above.
+**GitHub Pages / plain static hosts** (no build step): because
+`data/market.json` isn't committed, add a step that runs `python3
+scripts/build.py` and publishes the result (e.g. a GitHub Pages **build**
+workflow that runs the script before deploying), or build and upload it
+yourself. Cloudflare (above) already does this on every deploy.
 
 ## Sample data
 
@@ -130,5 +129,5 @@ assets/styles.css      # styling + light/dark theming
 assets/app.js          # data loading, charts, table, modal (dependency-free)
 scripts/build.py       # snapshots -> data/market.json
 scripts/gen_sample_data.py
-data/                  # dated snapshots + generated market.json
+data/                  # dated dd-mm-yyyy snapshots (market.json is generated, gitignored)
 ```
