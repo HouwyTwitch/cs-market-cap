@@ -552,7 +552,7 @@
 
       const nameTd = document.createElement("td");
       nameTd.className = "col-name";
-      const nm = document.createElement("span"); nm.className = "item-name"; nm.textContent = r.name;
+      const nm = document.createElement("span"); nm.className = "item-name"; nm.textContent = r.name; nm.title = r.name;
       const sub = document.createElement("span"); sub.className = "item-sub";
       sub.textContent = r.dominance != null ? `${r.dominance.toFixed(2)}% of market` : "—";
       nameTd.appendChild(nm); nameTd.appendChild(sub);
