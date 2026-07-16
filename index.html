@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CS2 Market Cap</title>
+  <meta name="description" content="Live market capitalisation and price history for CS2 skins — like a crypto market cap, for Counter-Strike 2 items." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%B0%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">₵</span>
+      <div class="brand-text">
+        <h1>CS2 Market Cap</h1>
+        <p class="tagline">Skin market capitalisation &amp; price history</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="generated" class="generated" title="When the dataset was last built"></span>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">
+        <span class="theme-toggle-icon" aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="app" hidden>
+    <!-- Filters scope everything below them -->
+    <div class="filters" role="group" aria-label="Time range">
+      <span class="filters-label">Range</span>
+      <div id="range" class="range-group"></div>
+    </div>
+
+    <section class="hero-grid" aria-label="Market summary">
+      <div class="hero-card">
+        <p class="stat-label">Total market cap</p>
+        <p id="hero-cap" class="hero-figure">—</p>
+        <p id="hero-delta" class="delta"></p>
+        <p id="hero-range-note" class="hero-note"></p>
+      </div>
+      <div id="tiles" class="tiles"></div>
+    </section>
+
+    <section class="card chart-card" aria-label="Market cap history">
+      <div class="card-head">
+        <div>
+          <h2>Total market cap over time</h2>
+          <p id="chart-sub" class="card-sub"></p>
+        </div>
+      </div>
+      <figure id="history-chart" class="chart" tabindex="0" aria-label="Line chart of total CS2 skin market cap over time"></figure>
+    </section>
+
+    <section class="card table-card" aria-label="Item rankings">
+      <div class="card-head table-head">
+        <div>
+          <h2>Skins by market cap</h2>
+          <p id="table-sub" class="card-sub"></p>
+        </div>
+        <div class="table-tools">
+          <label class="search">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input id="search" type="search" placeholder="Search skins…" autocomplete="off" spellcheck="false" aria-label="Search skins" />
+          </label>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="items-table">
+          <thead>
+            <tr>
+              <th class="col-rank" data-sort="rank"># </th>
+              <th class="col-name" data-sort="name">Skin</th>
+              <th class="col-num" data-sort="price">Price</th>
+              <th class="col-num" data-sort="change">Change</th>
+              <th class="col-num" data-sort="cap">Market cap</th>
+              <th class="col-num" data-sort="count">Supply</th>
+              <th class="col-spark">Trend</th>
+            </tr>
+          </thead>
+          <tbody id="items-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="loading" class="loading">Loading market data…</div>
+  <div id="error" class="error" hidden></div>
+
+  <footer class="footer">
+    <p>
+      Market cap = price × units in existence, summed across all tracked skins.
+      Data is read from <code>data/&lt;dd-mm-yyyy&gt;/</code> snapshots.
+    </p>
+    <p class="footer-muted">Static site · no tracking · <span id="footer-generated"></span></p>
+  </footer>
+
+  <!-- Item detail dialog -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" type="button" data-close aria-label="Close">×</button>
+      <h3 id="modal-title"></h3>
+      <div id="modal-stats" class="modal-stats"></div>
+      <div class="modal-charts">
+        <figure class="mini-chart">
+          <figcaption>Price</figcaption>
+          <div id="modal-price-chart"></div>
+        </figure>
+        <figure class="mini-chart">
+          <figcaption>Market cap</figcaption>
+          <div id="modal-cap-chart"></div>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
