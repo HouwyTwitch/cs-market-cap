@@ -2,6 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "cs-market-cap",
   "compatibility_date": "2026-07-16",
+  // Regenerate data/market.json from the data/<dd-mm-yyyy>/ snapshots as part of
+  // the Cloudflare build, so the deployed assets always include an up-to-date
+  // dataset — no dependency on a follow-up commit landing first.
+  "build": {
+    "command": "python3 scripts/build.py"
+  },
   "observability": {
     "enabled": true
   },
