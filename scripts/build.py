@@ -30,6 +30,19 @@ OUT_PATH = os.path.join(DATA_DIR, "market.json")
 DATE_RE = re.compile(r"^(\d{2})-(\d{2})-(\d{4})$")
 
 
+def load_first(folder, names):
+    """Load the first file in `names` that exists in `folder`.
+
+    Tolerates common singular/plural spellings (e.g. count.json vs
+    counts.json) so snapshots build regardless of which name was used.
+    """
+    for name in names:
+        path = os.path.join(folder, name)
+        if os.path.isfile(path):
+            return load_json(path)
+    return {}
+
+
 def load_json(path):
     if not os.path.isfile(path):
         return {}
@@ -100,8 +113,8 @@ def build():
     per_date_counts = []
     all_names = set()
     for _, name, folder in dates:
-        prices_raw = load_json(os.path.join(folder, "prices.json"))
-        counts_raw = load_json(os.path.join(folder, "count.json"))
+        prices_raw = load_first(folder, ("prices.json", "price.json"))
+        counts_raw = load_first(folder, ("count.json", "counts.json"))
         prices = {k: coerce_number(v) for k, v in prices_raw.items()}
         counts = {k: coerce_number(v) for k, v in counts_raw.items()}
         prices = {k: v for k, v in prices.items() if v is not None}

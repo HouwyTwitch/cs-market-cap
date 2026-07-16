@@ -1,0 +1,28 @@
+#!/bin/sh
+# After 'git pull' / 'git merge', rebuild data/market.json when the pulled
+# changes touched snapshots but did NOT already include a rebuilt market.json,
+# so a locally served site reflects the new data. In the normal case (the
+# incoming commit already carries a fresh market.json) this does nothing.
+#
+# Enable once per clone with:  sh scripts/setup-hooks.sh
+
+if git rev-parse -q --verify ORIG_HEAD >/dev/null 2>&1; then
+  changed=$(git diff --name-only ORIG_HEAD HEAD)
+else
+  changed=""
+fi
+
+snapshots_changed=no
+market_changed=no
+printf '%s\n' "$changed" | grep -qE '^(data/[0-9]{2}-[0-9]{2}-[0-9]{4}/|scripts/build\.py$)' && snapshots_changed=yes
+printf '%s\n' "$changed" | grep -qxE 'data/market\.json' && market_changed=yes
+
+# Only rebuild if snapshots changed and market.json was NOT refreshed by the pull.
+if [ "$snapshots_changed" != yes ] || [ "$market_changed" = yes ]; then
+  exit 0
+fi
+
+command -v python3 >/dev/null 2>&1 || exit 0
+
+echo "post-merge: rebuilding data/market.json ..."
+python3 scripts/build.py >/dev/null || echo "post-merge: scripts/build.py failed." >&2
