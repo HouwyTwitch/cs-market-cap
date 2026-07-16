@@ -90,8 +90,26 @@ python3 -m http.server 8000
 ## Deploy
 
 It's a plain static site — host the repo root anywhere (GitHub Pages, Netlify,
-Cloudflare Pages, S3, …). For **GitHub Pages**: Settings → Pages → deploy from
-branch, root (`/`). Make sure `data/market.json` is committed.
+Cloudflare, S3, …).
+
+**Cloudflare (Workers, this repo).** `wrangler.jsonc` sets a build step that
+regenerates `data/market.json` from the snapshots on every deploy:
+
+```jsonc
+"build": { "command": "python3 scripts/build.py" }
+```
+
+`wrangler deploy` (and Cloudflare's git-connected builds) run this *before*
+uploading the assets, so the live site always has a fresh `data/market.json`
+built from the exact commit being deployed. This avoids the race where the
+platform builds before a follow-up “rebuild” commit lands — Cloudflare no longer
+depends on that commit existing at all. (Cloudflare's build image includes
+Python 3; the build script is pure standard library, so nothing to install.)
+
+**GitHub Pages** (or any host without a build step): Settings → Pages → deploy
+from branch, root (`/`). There's no build step, so it serves the committed
+`data/market.json` — kept current by the pre-commit hook and the Actions
+workflow above.
 
 ## Sample data
 
